@@ -8,6 +8,7 @@ xlsxwriter = "*"
 streamlit = "*"
 pandas = "*"
 openpyxl = "*"
+numpy = "*"
 
 [dev-packages]
 xlsxwriter = "*"
