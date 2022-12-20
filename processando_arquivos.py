@@ -31,3 +31,13 @@ def reprocessando(file):
   csv_string = "".join(filtered_lines)
   csv_string_io = StringIO(csv_string)
   return csv_string_io
+
+def dataframe_to_rows(df, index=True, header=True):
+    """Iterate over a dataframe and yield rows as lists of values."""
+    # Yield the header row
+    if header:
+        yield list(df.columns)
+
+    # Yield the index values and data rows
+    for row in df.itertuples(index=index, name='Pandas'):
+        yield row

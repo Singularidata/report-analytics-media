@@ -1,12 +1,13 @@
 from datetime import datetime
 import streamlit as st
 import base64
+import openpyxl
 
 import pandas as pd
-from processando_arquivos import processando_arquivo, reprocessando
+from processando_arquivos import processando_arquivo, dataframe_to_rows
 from translators import translate_plataforma_from_google_ads, translate_plataforma_to_meta_ads
 
-st.title("ACOMP CISP")
+st.title("ACOMP Report! Cultura Inglesa (CISP/CIISA)")
 
 st.header("Google Analytics")
 analytics_file = st.file_uploader(
@@ -67,10 +68,22 @@ if (analytics_file is not None and gads_file is not None and hubspot_file is not
   gads_por_dia = gads_por_dia.astype({'Cliques': 'int', 'Leads': 'int', 'Impressões': 'int', 'Impressões': 'int','Investimento': 'int'})
   gads_por_dia["Source"] = "Google Ads"
 
-  #Meta ads
-  meta_ads = meta_ads.rename(columns={'Valor gasto (BRL)': 'Investimento', 'Custo por cadastro': 'CPL', 'CTR (taxa de cliques no link)': 'CTR', 'CPC (custo por clique no link)': 'CPC médio', 'Cliques no link': 'Cliques', 'Nome da campanha': 'Campanha', 'Conversas por mensagem iniciadas': 'Leads (wpp)' })
+  meta_ads = meta_ads.rename(columns={
+  'Leads Qualificados CIRJ': 'Cadastros no site',
+  'Valor gasto (BRL)': 'Investimento', 
+  'Custo por cadastro': 'CPL', 
+  'CTR (taxa de cliques no link)': 'CTR', 
+  'CPC (custo por clique no link)': 'CPC médio', 
+  'Cliques no link': 'Cliques', 
+  'Nome da campanha': 'Campanha', 
+  'Conversas por mensagem iniciadas': 'Leads (wpp)'
+    })
   meta_ads['Plataforma'] = meta_ads["Campanha"].apply(translate_plataforma_to_meta_ads)
   meta_ads = meta_ads.fillna(0)
+  if not "Leads (wpp)" in meta_ads.columns:
+     meta_ads['Leads (wpp)'] = 0
+  if not "Cadastros na Meta" in meta_ads.columns:
+     meta_ads['Cadastros na Meta'] = 0
   meta_ads['Leads'] = meta_ads['Cadastros no site'] + meta_ads['Leads (wpp)'] + meta_ads['Cadastros na Meta']
   meta_ads['CPL'] = meta_ads['Investimento'].div(meta_ads['Leads']).round(2)
   meta_ads_por_dia = meta_ads.groupby([meta_ads['Dia'].dt.date, 'Plataforma', 'Campanha']).agg({'Investimento': 'sum', 'Leads': 'sum', 'CPL': 'mean', 'Impressões': 'sum', 'Cliques': 'sum', 'CTR': 'mean', 'CPC médio': 'mean', 'Leads (wpp)': 'sum'}).reset_index()
@@ -115,19 +128,48 @@ if (analytics_file is not None and gads_file is not None and hubspot_file is not
   st.header('Acumulado')
   st.dataframe(acumulado)
 
-  writer = pd.ExcelWriter('./acomp_cisp_data_report.xlsx', engine='xlsxwriter')
-  hubspot_por_dia.to_excel(writer, sheet_name='hubspot')
-  analytics_por_dia.to_excel(writer, sheet_name='ga')
-  gads_por_dia.to_excel(writer, sheet_name='gads')
-  meta_ads_por_dia.to_excel(writer, sheet_name='meta ads')
-  tiktok_ads_por_dia.to_excel(writer, sheet_name='tiktok ads')
-  acumulado.to_excel(writer, sheet_name='acumulado')
-  writer.save()
 
-  with open('./acomp_cisp_data_report.xlsx', 'rb') as f:
+  workbook =  openpyxl.load_workbook('./src/acomp_data_report.xlsx')
+  original_dash = workbook['dashboard']
+  original_data = workbook['data']
+  original_dia = workbook['dia-a-dia']
+
+  workbook.remove(workbook.get_sheet_by_name('acumulado'))
+  acumulado_worksheet = workbook.create_sheet('acumulado')
+  for r in dataframe_to_rows(acumulado, index=False, header=True):
+    acumulado_worksheet.append(r)
+  
+  workbook.remove(workbook.get_sheet_by_name('hubspot'))
+  hubspot_worksheet = workbook.create_sheet('hubspot')
+  for r in dataframe_to_rows(hubspot_por_dia, index=False, header=True):
+    hubspot_worksheet.append(r)
+
+  workbook.remove(workbook.get_sheet_by_name('ga'))
+  ga_worksheet = workbook.create_sheet('ga')
+  for r in dataframe_to_rows(analytics_por_dia, index=False, header=True):
+    ga_worksheet.append(r)
+  
+  workbook.remove(workbook.get_sheet_by_name('gads'))
+  gads_worksheet = workbook.create_sheet('gads')
+  for r in dataframe_to_rows(gads_por_dia, index=False, header=True):
+    gads_worksheet.append(r)
+  
+  workbook.remove(workbook.get_sheet_by_name('meta ads'))
+  meta_ads_worksheet = workbook.create_sheet('meta ads')
+  for r in dataframe_to_rows(meta_ads_por_dia, index=False, header=True):
+    meta_ads_worksheet.append(r)
+
+  workbook.remove(workbook.get_sheet_by_name('tiktok ads'))
+  tiktok_ads_worksheet = workbook.create_sheet('tiktok ads')
+  for r in dataframe_to_rows(tiktok_ads_por_dia, index=False, header=True):
+    tiktok_ads_worksheet.append(r)
+  
+  workbook.save('./acomp_data_report.xlsx')
+
+  with open('./acomp_data_report.xlsx', 'rb') as f:
     excel_b64 = base64.b64encode(f.read())
-    
+
   st.markdown(
       "Clique no botão abaixo para fazer o download do arquivo Excel com as sugestões")
   st.markdown(
-      f'<a href="data:application/octet-stream;base64,{excel_b64.decode()}" download="acomp_cisp_data_report.xlsx">Baixar</a>', unsafe_allow_html=True)
+      f'<a href="data:application/octet-stream;base64,{excel_b64.decode()}" download="acomp_data_report.xlsx">Baixar</a>', unsafe_allow_html=True)
