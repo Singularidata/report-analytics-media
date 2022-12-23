@@ -5,8 +5,9 @@ def processando_arquivo(original_content, dados_portugues=False, debug=False):
   reader = csv.reader(reader_raw)
   content = StringIO()
   for linha in reader:
-        if len(linha) < 3:
+        if len(linha) < 3 or 'Total of' in linha[0]:
             # remove a linha incorreta
+            print('removendo...')
             continue
         if(dados_portugues):
           linha = list(map(lambda val: val.replace(".",""), linha))
