@@ -27,9 +27,10 @@ tiktok_ads_file = st.file_uploader(
 
 parsing_date = lambda date_string: pd.to_datetime(date_string).strftime("%Y%m%d")
 if (analytics_file is not None and gads_file is not None and hubspot_file is not None and meta_ads_file is not None and tiktok_ads_file is not None):
+  
   analytics_content = analytics_file.read().decode("utf-8")
   gads_content = gads_file.read().decode("utf-8")
-  hubspot_content = hubspot_file.read().decode("utf-8")
+  hubspot_content = hubspot_file.read().decode("utf-8") #.replace('\0', ' ')
   meta_ads_content = meta_ads_file.read().decode("utf-8")
   tiktok_ads_content = tiktok_ads_file.read().decode("utf-8")
 
@@ -84,7 +85,9 @@ if (analytics_file is not None and gads_file is not None and hubspot_file is not
      meta_ads['Leads (wpp)'] = 0
   if not "Cadastros na Meta" in meta_ads.columns:
      meta_ads['Cadastros na Meta'] = 0
-  meta_ads['Leads'] = meta_ads['Cadastros no site'] + meta_ads['Leads (wpp)'] + meta_ads['Cadastros na Meta']
+  meta_ads = meta_ads.fillna(0)
+  
+  meta_ads['Leads'] = meta_ads['Cadastros no site'].astype(int) + meta_ads['Leads (wpp)'].astype(int) + meta_ads['Cadastros na Meta'].astype(int)
   meta_ads['CPL'] = meta_ads['Investimento'].div(meta_ads['Leads']).round(2)
   meta_ads_por_dia = meta_ads.groupby([meta_ads['Dia'].dt.date, 'Plataforma', 'Campanha']).agg({'Investimento': 'sum', 'Leads': 'sum', 'CPL': 'mean', 'Impressões': 'sum', 'Cliques': 'sum', 'CTR': 'mean', 'CPC médio': 'mean', 'Leads (wpp)': 'sum'}).reset_index()
   meta_ads_por_dia = meta_ads_por_dia.fillna(0)

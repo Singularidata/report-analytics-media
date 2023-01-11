@@ -1,11 +1,13 @@
 from io import StringIO
 import csv
 def processando_arquivo(original_content, dados_portugues=False, debug=False):
+ 
   reader_raw = StringIO(original_content)
   reader = csv.reader(reader_raw)
   content = StringIO()
   for linha in reader:
-        if len(linha) < 3 or 'Total of' in linha[0]:
+        print("linha", list(linha))
+        if len(linha) < 3 or ('Total of' in list(linha)[0]):
             # remove a linha incorreta
             print('removendo...')
             continue
