@@ -2,7 +2,7 @@ import re
 
 def translate_plataforma_from_google_ads(line):
   if re.search('.*(search|Search).*', line) and re.search('.*(testeonline|TesteOnline|teste_online).*', line):
-    return "Google Search (teste on-line)"
+    return "Google Search (teste online)"
   elif re.search('.*(search|Search).*', line):
     return "Google Search"
   elif re.search('.*(pmax|Pmax|PMAX|PMax|performancemax|PerformanceMax|performance_max).*', line):
