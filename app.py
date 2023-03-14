@@ -4,129 +4,126 @@ import base64
 import openpyxl
 
 import pandas as pd
-from processando_arquivos import processando_arquivo, dataframe_to_rows
-from translators import translate_plataforma_from_google_ads, translate_plataforma_to_meta_ads
+from processando_arquivos import processando_arquivo, processando_arquivo_e_tipo, dataframe_to_rows
+from translators import translate_plataforma_from_google_ads, translate_plataforma_to_meta_ads, translate_campaign_type
 
 st.title("ACOMP Report! Cultura Inglesa (CISP/CIISA)")
 
-st.header("Google Analytics")
-analytics_file = st.file_uploader(
-    "Selecione o arquivo CSV do Google Analytics", type="csv")
-st.header("Google Ads")
-gads_file = st.file_uploader(
-    "Selecione o arquivo CSV do Google Ads", type="csv")
-st.header("Hubspot")
-hubspot_file = st.file_uploader(
-    "Selecione o arquivo CSV do Hubpost", type="csv")
-st.header("Meta Ads")
-meta_ads_file = st.file_uploader(
-    "Selecione o arquivo CSV do Meta Ads", type="csv")
-st.header("TikTok Ads")
-tiktok_ads_file = st.file_uploader(
-    "Selecione o arquivo CSV do TikTok Ads", type="csv")
+st.header("Arquivos CSV")
+array_files = st.file_uploader(
+    "Selecione todos os arquivos CSV para o relatório", type="csv", accept_multiple_files=True)
 
-parsing_date = lambda date_string: pd.to_datetime(date_string).strftime("%Y%m%d")
-if (analytics_file is not None and gads_file is not None and hubspot_file is not None and meta_ads_file is not None and tiktok_ads_file is not None):
+dados = {}
+fonte_original = {
+  'analytics': 'Google Analytics',
+  'gads': 'Google Ads',
+  'hubspot': 'Hubspot',
+  'meta_ads': 'Meta Ads',
+  'tiktok_ads': 'TikTok Ads'
+}
+translate_parse_dates = {
+  'analytics': 'Data',
+  'gads': 'Dia',
+  'hubspot': 'Create Date',
+  'meta_ads': 'Dia',
+  'tiktok_ads': 'Date'
+}
+rename_columns = {}
+
+lista_de_fontes = fonte_original.keys()
+lista_de_dados = dados.keys()
+fontes_que_faltam = list(set(lista_de_fontes) - set(lista_de_dados))
+if(len(fontes_que_faltam) > 0):
+  st.write(f'Ainda falta arquivo para gerar o Export:')
+  for i in fontes_que_faltam:
+    st.header(f"⚠️ - {fonte_original[i]}")
+
+#Crio um FOR. Assim, para cada arquivo enviado, o sistema calcula qual arquivo foi enviado e retorna para o usuário a informação
+for file in array_files:
+  file_content = file.read().decode('utf-8')
+  file_content_corrected = processando_arquivo_e_tipo(file_content)
+  tipo = file_content_corrected['tipo']
+  dados[tipo] = pd.read_csv(file_content_corrected['arquivo'],  error_bad_lines=False, parse_dates=[translate_parse_dates[tipo]]) 
+  st.header(f"✅ - {tipo}")
+
+
+
+if (len(fontes_que_faltam) == 0):
+  #Default
+  plataforma = ''
+  colunas_default = ['Dia', 'Plataforma','Campanha', 'Tipo', 'Source', 'Investimento','Leads', 'CPL', 'Impressões', 'Cliques', 'CTR', 'CPC médio']
+  dados_por_dia = {}
+
+  def proccess_data(rename_columns, platform):
+    dados[plataforma] = dados[plataforma].rename(columns=rename_columns)
+    if platform == 'meta_ads':
+      dados[platform]['Plataforma'] = dados[platform]['Campanha'].apply(translate_plataforma_to_meta_ads) 
+    else:
+      dados[platform]['Plataforma'] = dados[platform]['Campanha'].apply(translate_plataforma_from_google_ads)
+    dados[platform]['Tipo'] = dados[platform]['Campanha'].apply(translate_campaign_type)
+    dados[platform]["Source"] = platform.replace("_", " ").title()
+    dados[platform] = dados[platform].fillna(0)
+
+  for plataforma in dados:
+    if plataforma == 'hubspot':
+      rename_columns = {'Create Date': 'Dia', 'Original Source Drill-Down 1': 'Campanha', 'Lifecycle Stage': 'Tipo Lead', 'Email': 'Leads'}
+      proccess_data(rename_columns=rename_columns, platform=plataforma)
+      dados_por_dia[plataforma] = dados[plataforma].groupby([dados[plataforma]['Dia'].dt.date, 'Plataforma', 'Campanha', 'Tipo', 'Source', 'Tipo Lead']).agg({'Leads': 'count'}).reset_index()
+
+    elif plataforma == 'analytics':
+      rename_columns={'Data': 'Dia', 'ABlab - Submissão de formulário (Conclusões da meta 10)': 'Leads', 'ABlab - Submissão de formulário (Taxa de conversão da meta 10)': 'Taxa de conv.'}
+      dados[plataforma]['Data'] = dados[plataforma]['Data'].dt.date
+      proccess_data(rename_columns=rename_columns, platform=plataforma)
+      dados_por_dia[plataforma] = dados[plataforma][['Dia', 'Plataforma', 'Campanha', 'Tipo', 'Source', 'Usuários', 'Sessões', 'Leads', 'Taxa de conv.']]
+
+    elif plataforma == 'gads':
+      rename_columns={'Custo': 'Investimento', 'Impr.': 'Impressões', 'Impr': 'Impressões', 'Conversões': 'Leads', 'Custo / conv.': 'CPL', 'Custo / conv': 'CPL'}
+      dados[plataforma]['Dia'] = dados[plataforma]['Dia'].dt.date
+      proccess_data(rename_columns=rename_columns, platform=plataforma)
+      dados_por_dia[plataforma] = dados[plataforma][colunas_default]
+      dados_por_dia[plataforma] = dados_por_dia[plataforma].astype({'Cliques': 'int', 'Leads': 'int', 'Impressões': 'int', 'Impressões': 'int','Investimento': 'float'})
+
+    elif plataforma == 'meta_ads':
+      rename_columns={
+      'Leads Qualificados CIRJ': 'Cadastros no site',
+      'Valor gasto (BRL)': 'Investimento', 
+      'Custo por cadastro': 'CPL', 
+      'CTR (taxa de cliques no link)': 'CTR', 
+      'CPC (custo por clique no link)': 'CPC médio', 
+      'Cliques no link': 'Cliques', 
+      'Nome da campanha': 'Campanha', 
+      'Conversas por mensagem iniciadas': 'Leads (wpp)'
+      }
+      proccess_data(rename_columns=rename_columns, platform=plataforma)
+      if not "Leads (wpp)" in dados[plataforma].columns:
+        dados[plataforma]['Leads (wpp)'] = 0
+      if not "Cadastros na Meta" in dados[plataforma].columns:
+        dados[plataforma]['Cadastros na Meta'] = 0
   
-  analytics_content = analytics_file.read().decode("utf-8")
-  gads_content = gads_file.read().decode("utf-8")
-  hubspot_content = hubspot_file.read().decode("utf-8") #.replace('\0', ' ')
-  meta_ads_content = meta_ads_file.read().decode("utf-8")
-  tiktok_ads_content = tiktok_ads_file.read().decode("utf-8")
+      dados[plataforma]['Leads'] = dados[plataforma]['Cadastros no site'].astype(int) + dados[plataforma]['Leads (wpp)'].astype(int) + dados[plataforma]['Cadastros na Meta'].astype(int)
+      dados[plataforma]['CPL'] = dados[plataforma]['Investimento'].div(dados[plataforma]['Leads']).round(2)
+      dados_por_dia[plataforma] = dados[plataforma].groupby([dados[plataforma]['Dia'].dt.date, 'Plataforma', 'Campanha', 'Tipo', 'Source']).agg({'Investimento': 'sum', 'Leads': 'sum', 'CPL': 'mean', 'Impressões': 'sum', 'Cliques': 'sum', 'CTR': 'mean', 'CPC médio': 'mean', 'Leads (wpp)': 'sum'}).reset_index()
+      dados_por_dia[plataforma] = dados_por_dia[plataforma].fillna(0)
+      dados_por_dia[plataforma] = dados_por_dia[plataforma].astype({'Cliques': 'int', 'Leads': 'int', 'Impressões': 'int'})
+      dados_por_dia[plataforma]['Taxa de conv.'] = dados_por_dia[plataforma]['Leads'].div(dados_por_dia[plataforma]['Cliques']).round(4)*100
+      dados_por_dia[plataforma]['CPL'] = dados_por_dia[plataforma]['Investimento'].div(dados_por_dia[plataforma]['Leads']).round(2)
+      dados_por_dia[plataforma]['CTR'] = dados_por_dia[plataforma][dados_por_dia[plataforma]['Plataforma'] == 'Meta Ads']['Cliques'].div(dados_por_dia[plataforma][dados_por_dia[plataforma]['Plataforma'] == 'Meta Ads']['Impressões']).round(4)*100
+      dados_por_dia[plataforma] = dados_por_dia[plataforma].fillna(0)
+      dados_por_dia[plataforma]['Taxa de conv.'] = dados_por_dia[plataforma]['Taxa de conv.'].round(2).map(str) +'%'
+      dados_por_dia[plataforma]['CTR'] = dados_por_dia[plataforma]['CTR'].round(2).map(str) +'%'
 
-  analytics_content_corrected = processando_arquivo(analytics_content, dados_portugues=True)
-  gads_content_corrected = processando_arquivo(gads_content, dados_portugues=True)
-  hubspot_content_corrected = processando_arquivo(hubspot_content)
-  meta_ads_content_corrected = processando_arquivo(meta_ads_content)
-  tiktok_ads_content_corrected = processando_arquivo(tiktok_ads_content)
-
-  analytics = pd.read_csv(analytics_content_corrected,  error_bad_lines=False, parse_dates=['Data'])
-  gads = pd.read_csv(gads_content_corrected,  error_bad_lines=False, parse_dates=['Dia'])
-  hubspot = pd.read_csv(hubspot_content_corrected,  error_bad_lines=False, parse_dates=['Create Date'])
-  meta_ads = pd.read_csv(meta_ads_content_corrected,  error_bad_lines=False, parse_dates=['Dia'])
-  tiktok_ads = pd.read_csv(tiktok_ads_content_corrected,  error_bad_lines=False, parse_dates=['Date'])
-  
-  st.button("Processar novamente!")
-
-
-  hubspot_por_dia = hubspot.groupby([hubspot['Create Date'].dt.date, 'Original Source Drill-Down 1', 'Lifecycle Stage']).agg({'Email': 'count'}).reset_index()
-  hubspot_por_dia = hubspot_por_dia.rename(columns={'Create Date': 'Dia', 'Original Source Drill-Down 1': 'Campanha', 'Lifecycle Stage': 'Tipo', 'Email': 'Leads'})
-  hubspot_por_dia['Plataforma'] = hubspot_por_dia['Campanha'].apply(translate_plataforma_from_google_ads)
-  hubspot_por_dia["Source"] = "Hubspot"
-
-  #analytics
-  analytics['Data'] = analytics['Data'].dt.date
-  analytics['Plataforma'] = analytics['Campanha'].apply(translate_plataforma_from_google_ads)
-  analytics = analytics.rename(columns={'Data': 'Dia', 'ABlab - Submissão de formulário (Conclusões da meta 10)': 'Leads', 'ABlab - Submissão de formulário (Taxa de conversão da meta 10)': 'Taxa de conv.'})
-  analytics_por_dia = analytics[['Dia', 'Plataforma', 'Campanha', 'Usuários', 'Sessões', 'Leads', 'Taxa de conv.']]
-  analytics_por_dia["Source"] = "Google Analytics"
-
-  #Gads
-  gads['Dia'] = gads['Dia'].dt.date
-  gads['Plataforma'] = gads['Campanha'].apply(translate_plataforma_from_google_ads)
-  gads = gads.rename(columns={'Custo': 'Investimento', 'Impr.': 'Impressões', 'Impr': 'Impressões', 'Conversões': 'Leads', 'Custo / conv.': 'CPL', 'Custo / conv': 'CPL'})
-  gads_por_dia = gads[['Dia', 'Plataforma', 'Investimento','Leads', 'CPL', 'Impressões', 'Cliques', 'CTR', 'CPC médio', 'Taxa de conv']]
-  gads_por_dia = gads_por_dia.astype({'Cliques': 'int', 'Leads': 'int', 'Impressões': 'int', 'Impressões': 'int','Investimento': 'int'})
-  gads_por_dia["Source"] = "Google Ads"
-
-  meta_ads = meta_ads.rename(columns={
-  'Leads Qualificados CIRJ': 'Cadastros no site',
-  'Valor gasto (BRL)': 'Investimento', 
-  'Custo por cadastro': 'CPL', 
-  'CTR (taxa de cliques no link)': 'CTR', 
-  'CPC (custo por clique no link)': 'CPC médio', 
-  'Cliques no link': 'Cliques', 
-  'Nome da campanha': 'Campanha', 
-  'Conversas por mensagem iniciadas': 'Leads (wpp)'
-    })
-  meta_ads['Plataforma'] = meta_ads["Campanha"].apply(translate_plataforma_to_meta_ads)
-  meta_ads = meta_ads.fillna(0)
-  if not "Leads (wpp)" in meta_ads.columns:
-     meta_ads['Leads (wpp)'] = 0
-  if not "Cadastros na Meta" in meta_ads.columns:
-     meta_ads['Cadastros na Meta'] = 0
-  meta_ads = meta_ads.fillna(0)
-  
-  meta_ads['Leads'] = meta_ads['Cadastros no site'].astype(int) + meta_ads['Leads (wpp)'].astype(int) + meta_ads['Cadastros na Meta'].astype(int)
-  meta_ads['CPL'] = meta_ads['Investimento'].div(meta_ads['Leads']).round(2)
-  meta_ads_por_dia = meta_ads.groupby([meta_ads['Dia'].dt.date, 'Plataforma', 'Campanha']).agg({'Investimento': 'sum', 'Leads': 'sum', 'CPL': 'mean', 'Impressões': 'sum', 'Cliques': 'sum', 'CTR': 'mean', 'CPC médio': 'mean', 'Leads (wpp)': 'sum'}).reset_index()
-  meta_ads_por_dia = meta_ads_por_dia.fillna(0)
-  meta_ads_por_dia = meta_ads_por_dia.astype({'Cliques': 'int', 'Leads': 'int', 'Impressões': 'int'})
-  meta_ads_por_dia['Taxa de conv.'] = meta_ads_por_dia['Leads'].div(meta_ads_por_dia['Cliques']).round(4)*100
-  meta_ads_por_dia['CPL'] = meta_ads_por_dia['Investimento'].div(meta_ads_por_dia['Leads']).round(2)
-  meta_ads_por_dia['CTR'] = meta_ads_por_dia[meta_ads_por_dia['Plataforma'] == 'Meta Ads']['Cliques'].div(meta_ads_por_dia[meta_ads_por_dia['Plataforma'] == 'Meta Ads']['Impressões']).round(4)*100
-  meta_ads_por_dia = meta_ads_por_dia.fillna(0)
-  meta_ads_por_dia['Taxa de conv.'] = meta_ads_por_dia['Taxa de conv.'].round(2).map(str) +'%'
-  meta_ads_por_dia['CTR'] = meta_ads_por_dia['CTR'].round(2).map(str) +'%'
-  meta_ads_por_dia["Source"] = "Meta Ads"
-
+    elif plataforma == 'tiktok_ads':
+      rename_columns = {'Date': 'Dia', 'Campaign name': 'Campanha', 'Cost': 'Investimento', 'Total Submit Form': 'Leads', 'Impression': 'Impressões', 'Click': 'Cliques', 'CPC': 'CPC médio'}
+      proccess_data(rename_columns=rename_columns, platform=plataforma)
+      dados[plataforma]['Plataforma'] = dados[plataforma]['Plataforma'].str.replace('Outros', 'TikTok') 
+      dados[plataforma]['CPL'] = dados[plataforma]['Investimento'].div(dados[plataforma]['Leads']).round(2)
+      dados_por_dia[plataforma] = dados[plataforma].groupby([dados[plataforma]['Dia'].dt.date, 'Plataforma', 'Campanha', 'Tipo', 'Source']).agg({'Investimento': 'sum', 'Leads': 'sum', 'CPL': 'mean', 'Impressões': 'sum', 'Cliques': 'sum', 'CTR': 'mean', 'CPC médio': 'mean'}).reset_index()
+      dados_por_dia[plataforma]['Taxa de conv.'] = dados_por_dia[plataforma]['Leads'].div(dados_por_dia[plataforma]['Cliques']).round(4)*100
+      dados_por_dia[plataforma] = dados_por_dia[plataforma].fillna(0)
+      dados_por_dia[plataforma]['Taxa de conv.'] = dados_por_dia[plataforma]['Taxa de conv.'].round(2).map(str) +'%'
   #tiktok ads
-  tiktok_ads['Plataforma'] = "TikTok"
-  tiktok_ads = tiktok_ads.rename(columns={'Date': 'Dia', 'Campaign name': 'Campanha', 'Cost': 'Investimento', 'Total Submit Form': 'Leads', 'Impression': 'Impressões', 'Click': 'Cliques', 'CPC': 'CPC médio'})
-  tiktok_ads = tiktok_ads.fillna(0)
-  tiktok_ads['CPL'] = tiktok_ads['Investimento'].div(tiktok_ads['Leads']).round(2)
-  tiktok_ads_por_dia = tiktok_ads.groupby([tiktok_ads['Dia'].dt.date, 'Plataforma', 'Campanha']).agg({'Investimento': 'sum', 'Leads': 'sum', 'CPL': 'mean', 'Impressões': 'sum', 'Cliques': 'sum', 'CTR': 'mean', 'CPC médio': 'mean'}).reset_index()
-  tiktok_ads_por_dia['Taxa de conv.'] = tiktok_ads_por_dia['Leads'].div(tiktok_ads_por_dia['Cliques']).round(4)*100
-  tiktok_ads_por_dia = tiktok_ads_por_dia.fillna(0)
-  tiktok_ads_por_dia['Taxa de conv.'] = tiktok_ads_por_dia['Taxa de conv.'].round(2).map(str) +'%'
-  tiktok_ads_por_dia["Source"] = "TikTok Ads"
 
-  st.header('Analytics')
-  st.dataframe(analytics_por_dia)
-
-  st.header('GAds')
-  st.dataframe(gads_por_dia)
-
-  st.header('Hubspot')
-  st.dataframe(hubspot_por_dia)
-
-  st.header('Meta Ads')
-  st.dataframe(meta_ads_por_dia)
-
-  st.header('TikTok Ads')
-  st.dataframe(tiktok_ads_por_dia)
-
-  acumulado = pd.concat([analytics_por_dia, gads_por_dia, hubspot_por_dia, meta_ads_por_dia, tiktok_ads_por_dia], ignore_index=True)
+  acumulado = pd.concat(dados_por_dia.values(), ignore_index=True)
   acumulado = acumulado.fillna(0)
   st.header('Acumulado')
   st.dataframe(acumulado)
@@ -142,30 +139,15 @@ if (analytics_file is not None and gads_file is not None and hubspot_file is not
   for r in dataframe_to_rows(acumulado, index=False, header=True):
     acumulado_worksheet.append(r)
   
-  workbook.remove(workbook.get_sheet_by_name('hubspot'))
-  hubspot_worksheet = workbook.create_sheet('hubspot')
-  for r in dataframe_to_rows(hubspot_por_dia, index=False, header=True):
-    hubspot_worksheet.append(r)
+  plataformas = ['hubspot', 'analytics', 'gads', "meta_ads", 'tiktok_ads']
 
-  workbook.remove(workbook.get_sheet_by_name('ga'))
-  ga_worksheet = workbook.create_sheet('ga')
-  for r in dataframe_to_rows(analytics_por_dia, index=False, header=True):
-    ga_worksheet.append(r)
-  
-  workbook.remove(workbook.get_sheet_by_name('gads'))
-  gads_worksheet = workbook.create_sheet('gads')
-  for r in dataframe_to_rows(gads_por_dia, index=False, header=True):
-    gads_worksheet.append(r)
-  
-  workbook.remove(workbook.get_sheet_by_name('meta ads'))
-  meta_ads_worksheet = workbook.create_sheet('meta ads')
-  for r in dataframe_to_rows(meta_ads_por_dia, index=False, header=True):
-    meta_ads_worksheet.append(r)
-
-  workbook.remove(workbook.get_sheet_by_name('tiktok ads'))
-  tiktok_ads_worksheet = workbook.create_sheet('tiktok ads')
-  for r in dataframe_to_rows(tiktok_ads_por_dia, index=False, header=True):
-    tiktok_ads_worksheet.append(r)
+  for plat in plataformas:
+    plat_raw = plat.replace("_", " ").replace('analytics', 'ga')
+    
+    workbook.remove(workbook.get_sheet_by_name(plat_raw))
+    data_worksheet = workbook.create_sheet(plat_raw)
+    for r in dataframe_to_rows(dados_por_dia[plat], index=False, header=True):
+      data_worksheet.append(r)
   
   workbook.save('./acomp_data_report.xlsx')
 
@@ -176,3 +158,5 @@ if (analytics_file is not None and gads_file is not None and hubspot_file is not
       "Clique no botão abaixo para fazer o download do arquivo Excel com as sugestões")
   st.markdown(
       f'<a href="data:application/octet-stream;base64,{excel_b64.decode()}" download="acomp_data_report.xlsx">Baixar</a>', unsafe_allow_html=True)
+
+  st.button("Processar novamente!")

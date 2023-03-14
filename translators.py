@@ -1,6 +1,7 @@
 import re
 
 def translate_plataforma_from_google_ads(line):
+  line = line.lower()
   if re.search('.*(search|Search).*', line) and re.search('.*(testeonline|TesteOnline|teste_online|Testeonline).*', line):
     return "Google Search (teste online)"
   elif re.search('.*(search|Search).*', line):
@@ -27,6 +28,18 @@ def translate_plataforma_from_google_ads(line):
     return 'Organico'
   else:
     return 'Outros'
+
+def translate_campaign_type(campaign_name):
+  if re.search('.*(testeonline|TesteOnline|teste_online|Testeonline).*', campaign_name):
+    return "Teste Online"
+  elif re.search('.*(wpp|WhatsApp|Whatsapp|WHATSAPP|whatsapp|whats_app).*', campaign_name):
+    return "Whatsapp"
+  elif re.search('.*(faculdade|Faculdade|FACULDADE).*', campaign_name):
+    return "Faculdade"
+  elif re.search('.*(fortnite|Fortnite|FORTNITE).*', campaign_name):
+    return "Fortnite"
+  else:
+    return "Captação"
 
 def translate_plataforma_to_meta_ads(line):
   if re.search('.*(whatsapp|Whatsapp|WHATSAPP|WhatsApp).*', line):
