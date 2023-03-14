@@ -30,13 +30,6 @@ translate_parse_dates = {
 }
 rename_columns = {}
 
-lista_de_fontes = fonte_original.keys()
-lista_de_dados = dados.keys()
-fontes_que_faltam = list(set(lista_de_fontes) - set(lista_de_dados))
-if(len(fontes_que_faltam) > 0):
-  st.write(f'Ainda falta arquivo para gerar o Export:')
-  for i in fontes_que_faltam:
-    st.header(f"⚠️ - {fonte_original[i]}")
 
 #Crio um FOR. Assim, para cada arquivo enviado, o sistema calcula qual arquivo foi enviado e retorna para o usuário a informação
 for file in array_files:
@@ -44,8 +37,15 @@ for file in array_files:
   file_content_corrected = processando_arquivo_e_tipo(file_content)
   tipo = file_content_corrected['tipo']
   dados[tipo] = pd.read_csv(file_content_corrected['arquivo'],  error_bad_lines=False, parse_dates=[translate_parse_dates[tipo]]) 
-  st.header(f"✅ - {tipo}")
+  st.header(f"✅ - {fonte_original[tipo]}")
 
+lista_de_fontes = fonte_original.keys()
+lista_de_dados = dados.keys()
+fontes_que_faltam = list(set(lista_de_fontes) - set(lista_de_dados))
+if(len(fontes_que_faltam) > 0):
+  st.write(f'Ainda falta arquivo para gerar o Export:')
+  for i in fontes_que_faltam:
+    st.header(f"⚠️ - {fonte_original[i]}")
 
 
 if (len(fontes_que_faltam) == 0):
@@ -125,23 +125,15 @@ if (len(fontes_que_faltam) == 0):
 
   acumulado = pd.concat(dados_por_dia.values(), ignore_index=True)
   acumulado = acumulado.fillna(0)
-  st.header('Acumulado')
-  st.dataframe(acumulado)
-
 
   workbook =  openpyxl.load_workbook('./src/acomp_data_report.xlsx')
-  original_dash = workbook['dashboard']
-  original_data = workbook['data']
-  original_dia = workbook['dia-a-dia']
 
   workbook.remove(workbook.get_sheet_by_name('acumulado'))
   acumulado_worksheet = workbook.create_sheet('acumulado')
   for r in dataframe_to_rows(acumulado, index=False, header=True):
     acumulado_worksheet.append(r)
   
-  plataformas = ['hubspot', 'analytics', 'gads', "meta_ads", 'tiktok_ads']
-
-  for plat in plataformas:
+  for plat in dados_por_dia.keys():
     plat_raw = plat.replace("_", " ").replace('analytics', 'ga')
     
     workbook.remove(workbook.get_sheet_by_name(plat_raw))
@@ -150,13 +142,10 @@ if (len(fontes_que_faltam) == 0):
       data_worksheet.append(r)
   
   workbook.save('./acomp_data_report.xlsx')
-
   with open('./acomp_data_report.xlsx', 'rb') as f:
     excel_b64 = base64.b64encode(f.read())
 
   st.markdown(
-      "Clique no botão abaixo para fazer o download do arquivo Excel com as sugestões")
-  st.markdown(
-      f'<a href="data:application/octet-stream;base64,{excel_b64.decode()}" download="acomp_data_report.xlsx">Baixar</a>', unsafe_allow_html=True)
+      f'Agora você já pode baixar o Excel pronto clicando no link: <a href="data:application/octet-stream;base64,{excel_b64.decode()}" download="acomp_data_report.xlsx">acomp_data_report.xlsx</a>', unsafe_allow_html=True)
 
   st.button("Processar novamente!")
