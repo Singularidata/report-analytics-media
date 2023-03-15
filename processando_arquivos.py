@@ -43,7 +43,7 @@ def processando_arquivo_e_tipo(original_content, debug=False):
           tipo = 'gads'
         elif (re.search('lifecycle stage', linha_string)):
           tipo = 'hubspot'
-        elif (re.search('status de veiculação', linha_string)):
+        elif (re.search('(status de veiculação|delivery status)', linha_string)):
           tipo = 'meta_ads'
         elif (re.search('url \(ad level\)', linha_string)):
           tipo = 'tiktok_ads'
