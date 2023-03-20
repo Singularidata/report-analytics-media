@@ -120,7 +120,7 @@ if (len(fontes_que_faltam) == 0):
       dados_por_dia[plataforma]['CTR'] = dados_por_dia[plataforma]['CTR'].round(2).map(str) +'%'
 
     elif plataforma == 'tiktok_ads':
-      rename_columns = {'Date': 'Dia', 'Campaign name': 'Campanha', 'Cost': 'Investimento', 'Total Submit Form': 'Leads', 'Impression': 'Impressões', 'Click': 'Cliques', 'CPC': 'CPC médio'}
+      rename_columns = {'Date': 'Dia', 'Campaign name': 'Campanha', 'Cost': 'Investimento', 'Total Submit Form': 'Leads', 'Impression': 'Impressões', 'Click': 'Cliques', 'CPC': 'CPC médio', 'Clicks (Destination)': 'Cliques', 'CPC (Destination)': 'CPC médio', 'CTR (Destination)': 'CTR'}
       proccess_data(rename_columns=rename_columns, platform=plataforma)
       dados[plataforma]['Plataforma'] = dados[plataforma]['Plataforma'].str.replace('Outros', 'TikTok') 
       dados[plataforma]['CPL'] = dados[plataforma]['Investimento'].div(dados[plataforma]['Leads']).round(2)
