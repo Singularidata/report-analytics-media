@@ -27,6 +27,7 @@ def processando_arquivo_e_tipo(original_content, debug=False):
   reader_raw = StringIO(original_content)
   reader = csv.reader(reader_raw)
   dados_portugues=False
+  verificado=False
   tipo = ''
   content = StringIO()
   for linha in reader:
@@ -49,8 +50,11 @@ def processando_arquivo_e_tipo(original_content, debug=False):
           tipo = 'tiktok_ads'
 
       #verifica dados portugues ou ingles
-      if ( not(dados_portugues) and re.search('.*([0-9]+\,[0-9]+%)', linha_string) ):
+      if ( not(dados_portugues) and not(verificado) and re.search('.*([0-9]+\,[0-9]+%)', linha_string) ):
         dados_portugues = True
+        verificado=True
+      elif ('Record ID' in list(linha)[0]):
+         verificado= True
       if(dados_portugues):
         linha = list(map(lambda val: val.replace(".",""), linha))
         linha = list(map(lambda val: val.replace(",","."), linha))
@@ -61,7 +65,8 @@ def processando_arquivo_e_tipo(original_content, debug=False):
     print("content2 ")
     print(content.getvalue())
   #encontrando o tipo
-  return {"arquivo": content, "tipo": tipo}
+  dict_file = {"arquivo": content, "tipo": tipo}
+  return dict_file
 
 def reprocessando(file):
   with open(file, "r") as f:
