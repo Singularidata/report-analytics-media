@@ -12,7 +12,9 @@ def translate_plataforma_from_google_ads(line):
     return 'Google Display'
   elif re.search('.*(discovery|Discovery).*', line):
     return 'Google Discovery'
-  elif re.search('.*(tiktok|Tiktok|TIKTOK).*', line):
+  elif re.search('.*(tiktok).*', line) and re.search('.*(whatsapp|wpp|whats_app).*', line):
+    return 'TikTok (wpp)'
+  elif re.search('.*(tiktok).*', line):
     return 'TikTok'
   elif re.search('.*(fbi|Fbi|FBI).*', line):
     return 'Meta Ads'
