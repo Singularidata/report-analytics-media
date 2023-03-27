@@ -37,10 +37,12 @@ for file in array_files:
   try:
     file_content_corrected = processando_arquivo_e_tipo(file_content)
     tipo = file_content_corrected['tipo']
-    dados[tipo] = pd.read_csv(file_content_corrected['arquivo'],  error_bad_lines=False, parse_dates=[translate_parse_dates[tipo]]) 
+    print('aqui passou ....', tipo)
+    dados[tipo] = pd.read_csv(file_content_corrected['arquivo'],  on_bad_lines='skip', parse_dates=[translate_parse_dates[tipo]]) 
     st.header(f"✅ - {fonte_original[tipo]}")
-  except:
+  except Exception as err:
     st.header(f"🚫 - {file.name} - O arquivo está com erro. Por favor revise!")
+    print('error', err)
 
 lista_de_fontes = fonte_original.keys()
 lista_de_dados = dados.keys()

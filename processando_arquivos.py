@@ -46,8 +46,9 @@ def processando_arquivo_e_tipo(original_content, debug=False):
           tipo = 'hubspot'
         elif (re.search('(status de veiculação|delivery status)', linha_string)):
           tipo = 'meta_ads'
-        elif (re.search('url \(ad level\)', linha_string)):
+        elif (re.search('url.*ad level.*', linha_string)):
           tipo = 'tiktok_ads'
+        print('linha_string ', linha_string)
 
       #verifica dados portugues ou ingles
       if ( not(dados_portugues) and not(verificado) and re.search('.*([0-9]+\,[0-9]+%)', linha_string) ):
