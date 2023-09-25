@@ -1,4 +1,4 @@
-# ACOMP Report! Cultura Inglesa
+# MEDIA Report! Analytics (TikTok, Google Ads, Meta Ads, Google Analytics)
 
 Automação de relatórios Cultura Inglesa. Para rodar você precisa ter:
 
@@ -18,7 +18,7 @@ Faça os exports dos relatórios nas plataformas.
 
 Para fazer o exports dos relatórios das plataformas detalho abaixo:
 
-- **Google Analytics**: Personalização >> Relatório Personalizado >> ACOMP CISP / ACOMP CIISA
+- **Google Analytics**: Personalização >> Relatório Personalizado 
   - Escolha o período, faça exibir todas as linhas (abaixo escolha o número máximo)
   - Clique em Exportar e escolha a opção CSV
 - **Google Ads**: Ferramentas e Configurações >> Relatórios >> Report Weekly ACOMP
@@ -29,11 +29,11 @@ Para fazer o exports dos relatórios das plataformas detalho abaixo:
   - Deixe marcada a opção "Apenas propriedade na visualização"
   - Deixe a linguagem em Inglês
   - Faça o Export
-- **Meta Ads**: Gerenciador de Anúncios >> Menu >> Relatório de Anúncios >> [Ablab] (CISP ou CIISA) - Report
+- **Meta Ads**: Gerenciador de Anúncios >> Menu >> Relatório de Anúncios
   - Selecione o período e clique no botão de download (canto superior direito)
   - Escolha a opção CSV e clique em Exportar
   - A opção "incluir linha de resumo" **NUNCA** deve estar marcada
-- **Tiktok Ads**: Gerenciador de Anúncios >> Reporting >> Selecione o relatório report-weekly-acomp
+- **Tiktok Ads**: Gerenciador de Anúncios >> Reporting >> Selecione o relatório
   - Selecione o período e clique em 'Run & Export'
   - Escolha a opção 'CSV' e clique em 'Export'
 
